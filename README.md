@@ -14,6 +14,46 @@ A collection of algorithmic trading strategies implemented in Python for backtes
   - Portfolio backtesting with $10,000 initial capital
   - Visual markers for entry/exit points
 
+### MACD Strategy
+- **File**: `strategies/macd-strategy.py`
+- **Description**: Moving Average Convergence Divergence momentum strategy using exponential moving averages
+- **Features**:
+  - MACD line crossover signals (12, 26, 9 periods)
+  - Signal line and histogram analysis
+  - Zero line crossover confirmation
+  - Multiple chart panels showing price, MACD, and histogram
+  - EMA trend confirmation with 12 and 26 period lines
+
+### Mean Reversion (Z-Score) Strategy
+- **File**: `strategies/mean-reversion-zscore.py`
+- **Description**: Statistical mean reversion strategy using Z-Score to identify overbought/oversold conditions
+- **Features**:
+  - Z-Score calculation with 20-day rolling window
+  - Buy signals at Z-Score ≤ -1.5 (oversold)
+  - Sell signals at Z-Score ≥ 1.5 (overbought)
+  - Bollinger Bands integration for additional confirmation
+  - Volume confirmation using moving average filter
+
+### RSI Divergence Strategy
+- **File**: `strategies/rsi-divergence.py`
+- **Description**: Relative Strength Index divergence strategy to identify potential trend reversals
+- **Features**:
+  - Bullish divergence detection (price lower lows, RSI higher lows)
+  - Bearish divergence detection (price higher highs, RSI lower highs)
+  - RSI overbought (>70) and oversold (<30) level confirmation
+  - Peak and trough analysis for divergence identification
+  - Combined signals for higher probability trades
+
+### Bollinger Bands Strategy
+- **File**: `strategies/bollinger-bands.py`
+- **Description**: Volatility-based mean reversion strategy using Bollinger Bands (20-period, 2 std dev)
+- **Features**:
+  - Buy signals when price touches lower band (oversold)
+  - Sell signals when price touches upper band (overbought)
+  - Bollinger Band position calculation for precise entry/exit
+  - Adaptive volatility bands that adjust to market conditions
+  - Visual band representation with price action
+
 ## Setup
 
 1. Clone the repository
@@ -32,9 +72,13 @@ A collection of algorithmic trading strategies implemented in Python for backtes
 Run any strategy directly:
 ```bash
 python strategies/sma-crossover.py
+python strategies/macd-strategy.py
+python strategies/mean-reversion-zscore.py
+python strategies/rsi-divergence.py
+python strategies/bollinger-bands.py
 ```
 
-The script will:
+The scripts will:
 - Download historical data from Yahoo Finance
 - Calculate technical indicators
 - Generate interactive charts
@@ -50,17 +94,17 @@ The script will:
 ## Future Strategies
 
 Planned implementations:
-- RSI divergence strategy
-- Bollinger Bands mean reversion
-- MACD momentum strategy
 - Volume-weighted average price (VWAP)
 - Pairs trading
 - Options strategies
+- Momentum strategies (Williams %R, Stochastic)
+- Breakout strategies (Donchian Channels)
 
 ## Data Sources
 
 - Yahoo Finance (via yfinance library)
 - Historical price data from 2020-present
+- Default ticker: JPM (configurable in each strategy)
 
 ## Disclaimer
 
