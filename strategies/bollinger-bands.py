@@ -2,12 +2,16 @@ import pandas as pd
 import numpy as np
 import yfinance as yf
 import plotly.graph_objects as go
+import sys
+import os
 
+# Add parent directory to path to import config
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from config import TICKER, START_DATE, END_DATE, INITIAL_CAPITAL
 
 # Load data
-ticker = 'JPM'
 print("Downloading data...")
-df = yf.download(f'{ticker}', start='2020-01-01', end='2025-01-01')
+df = yf.download(f'{TICKER}', start=START_DATE, end=END_DATE)
 
 # Check if data was downloaded successfully
 if df is None or df.empty:
@@ -39,7 +43,7 @@ fig.add_trace(go.Candlestick(
     high=df['High'],
     low=df['Low'],
     close=df['Close'],
-    name=f'{ticker}'
+    name=f'{TICKER}'
 ))
 
 # Add Bollinger Bands
@@ -65,7 +69,7 @@ fig.add_trace(go.Scatter(
 ))
 
 fig.update_layout(
-    title=f'{ticker} Stock Price with Bollinger Bands',
+    title=f'{TICKER} Stock Price with Bollinger Bands',
     xaxis_title='Date',
     yaxis_title='Price ($)',
     xaxis_rangeslider_visible=False
@@ -112,7 +116,7 @@ fig.add_trace(go.Scatter(
 fig.show()
 
 # Backtest the strategy
-initial_capital = 10000  # Starting with $10,000
+initial_capital = INITIAL_CAPITAL  # Starting with $10,000
 df['Position'] = 0  # 0 = no position, 1 = long position
 
 # Generate position signals
@@ -193,7 +197,7 @@ fig2.add_trace(go.Scatter(
 ))
 
 fig2.update_layout(
-    title=f'{ticker} - Bollinger Bands Strategy vs Buy & Hold',
+    title=f'{TICKER} - Bollinger Bands Strategy vs Buy & Hold',
     xaxis_title='Date',
     yaxis_title='Portfolio Value ($)',
     xaxis_rangeslider_visible=False

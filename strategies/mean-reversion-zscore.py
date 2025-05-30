@@ -3,6 +3,12 @@ import numpy as np
 import yfinance as yf
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
+import sys
+import os
+
+# Add parent directory to path to import config
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from config import TICKER, START_DATE, END_DATE, INITIAL_CAPITAL
 
 
 def calculate_zscore(prices, window=20):
@@ -38,9 +44,8 @@ def calculate_bollinger_position(prices, window=20, std_dev=2):
 
 
 # Load data
-ticker = 'JPM'
 print("Downloading data...")
-df = yf.download(f'{ticker}', start='2020-01-01', end='2025-01-01')
+df = yf.download(f'{TICKER}', start=START_DATE, end=END_DATE)
 
 # Check if data was downloaded successfully
 if df is None or df.empty:
@@ -90,7 +95,7 @@ fig = make_subplots(
     rows=3, cols=1,
     shared_xaxes=True,
     vertical_spacing=0.08,
-    subplot_titles=(f'{ticker} Price with Mean Reversion Strategy', 'Z-Score', 'Volume'),
+    subplot_titles=(f'{TICKER} Price with Mean Reversion Strategy', 'Z-Score', 'Volume'),
     row_heights=[0.5, 0.3, 0.2]
 )
 
@@ -102,7 +107,7 @@ fig.add_trace(
         high=df['High'],
         low=df['Low'],
         close=df['Close'],
-        name=f'{ticker}'
+        name=f'{TICKER}'
     ),
     row=1, col=1
 )
@@ -231,7 +236,7 @@ fig.add_trace(
 )
 
 fig.update_layout(
-    title=f'{ticker} - Mean Reversion Z-Score Strategy',
+    title=f'{TICKER} - Mean Reversion Z-Score Strategy',
     xaxis_rangeslider_visible=False,
     height=900
 )
@@ -239,7 +244,7 @@ fig.update_layout(
 fig.show()
 
 # Backtest the strategy
-initial_capital = 10000
+initial_capital = INITIAL_CAPITAL
 df['Position'] = 0
 current_position = 0
 
@@ -332,7 +337,7 @@ fig2.add_trace(go.Scatter(
 ))
 
 fig2.update_layout(
-    title=f'{ticker} - Mean Reversion Z-Score Strategy vs Buy & Hold',
+    title=f'{TICKER} - Mean Reversion Z-Score Strategy vs Buy & Hold',
     xaxis_title='Date',
     yaxis_title='Portfolio Value ($)',
     xaxis_rangeslider_visible=False

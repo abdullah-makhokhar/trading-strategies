@@ -2,12 +2,16 @@ import pandas as pd
 import numpy as np
 import yfinance as yf
 import plotly.graph_objects as go
+import sys
+import os
 
+# Add parent directory to path to import config
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from config import TICKER, START_DATE, END_DATE, INITIAL_CAPITAL
 
 # Load data
-ticker = 'JPM'
 print("Downloading data...")
-df = yf.download(f'{ticker}', start='2020-01-01', end='2025-01-01')
+df = yf.download(f'{TICKER}', start=START_DATE, end=END_DATE)
 
 # Check if data was downloaded successfully
 if df is None or df.empty:
@@ -32,11 +36,11 @@ fig.add_trace(go.Candlestick(
     high=df['High'],
     low=df['Low'],
     close=df['Close'],
-    name=f'{ticker}'
+    name=f'{TICKER}'
 ))
 
 fig.update_layout(
-    title=f'{ticker} Stock Price',
+    title=f'{TICKER} Stock Price',
     xaxis_title='Date',
     yaxis_title='Price ($)',
     xaxis_rangeslider_visible=False
@@ -83,13 +87,12 @@ fig.add_trace(go.Scatter(
 fig.show()
 
 # Backtest the strategy
-initial_capital = 10000  # Starting with $10,000
 df['Position'] = df['Signal'].shift(1)  # Shift by 1 to avoid look-ahead bias
 df['Position'] = df['Position'].fillna(0)  # Fill first row with 0
 
 # Calculate holdings and portfolio value
 df['Holdings'] = df['Position'] * df['Close']  # Value of stocks held
-df['Cash'] = initial_capital  # Initialize cash column
+df['Cash'] = INITIAL_CAPITAL  # Initialize cash column
 
 # Update cash based on trades
 for i in range(1, len(df)):
@@ -112,6 +115,6 @@ df['Portfolio_Value'] = df['Holdings'] + df['Cash']
 fig.add_trace(go.Scatter(
     x=df['Date'], 
     y=df['Portfolio_Value'], 
-    name=f'Portfolio Value (Initial ${initial_capital:,.0f})'
+    name=f'Portfolio Value (Initial ${INITIAL_CAPITAL:,.0f})'
 ))
 fig.show()

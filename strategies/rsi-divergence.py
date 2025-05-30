@@ -3,6 +3,12 @@ import numpy as np
 import yfinance as yf
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
+import sys
+import os
+
+# Add parent directory to path to import config
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from config import TICKER, START_DATE, END_DATE, INITIAL_CAPITAL
 
 
 def calculate_rsi(prices, window=14):
@@ -79,9 +85,8 @@ def detect_divergence(price_peaks, price_troughs, rsi_peaks, rsi_troughs, price_
 
 
 # Load data
-ticker = 'JPM'
 print("Downloading data...")
-df = yf.download(f'{ticker}', start='2020-01-01', end='2025-01-01')
+df = yf.download(f'{TICKER}', start=START_DATE, end=END_DATE)
 
 # Check if data was downloaded successfully
 if df is None or df.empty:
@@ -127,7 +132,7 @@ fig = make_subplots(
     rows=2, cols=1,
     shared_xaxes=True,
     vertical_spacing=0.1,
-    subplot_titles=(f'{ticker} Price with RSI Divergence', 'RSI'),
+    subplot_titles=(f'{TICKER} Price with RSI Divergence', 'RSI'),
     row_heights=[0.7, 0.3]
 )
 
@@ -139,7 +144,7 @@ fig.add_trace(
         high=df['High'],
         low=df['Low'],
         close=df['Close'],
-        name=f'{ticker}'
+        name=f'{TICKER}'
     ),
     row=1, col=1
 )
@@ -209,7 +214,7 @@ fig.add_shape(
 )
 
 fig.update_layout(
-    title=f'{ticker} - RSI Divergence Strategy',
+    title=f'{TICKER} - RSI Divergence Strategy',
     xaxis_rangeslider_visible=False,
     height=800
 )
@@ -217,7 +222,7 @@ fig.update_layout(
 fig.show()
 
 # Backtest the strategy
-initial_capital = 10000
+initial_capital = INITIAL_CAPITAL
 df['Position'] = 0
 current_position = 0
 
@@ -293,7 +298,7 @@ fig2.add_trace(go.Scatter(
 ))
 
 fig2.update_layout(
-    title=f'{ticker} - RSI Divergence Strategy vs Buy & Hold',
+    title=f'{TICKER} - RSI Divergence Strategy vs Buy & Hold',
     xaxis_title='Date',
     yaxis_title='Portfolio Value ($)',
     xaxis_rangeslider_visible=False

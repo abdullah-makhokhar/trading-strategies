@@ -2,6 +2,28 @@
 
 A collection of algorithmic trading strategies implemented in Python for backtesting and analysis.
 
+## Configuration
+
+### Ticker Symbol Setup
+All strategies use a centralized configuration system for the ticker symbol:
+
+1. **Quick Setup**: Run the setup script to change the ticker for all strategies:
+   ```bash
+   python setup_ticker.py
+   ```
+
+2. **Manual Setup**: Edit the `config.txt` file directly:
+   ```bash
+   echo "AAPL" > config.txt
+   ```
+
+3. **Default**: If no configuration is found, strategies default to AAPL.
+
+The configuration system includes:
+- `config.txt` - Simple text file containing the ticker symbol
+- `config.py` - Python module that reads the configuration
+- Automatic fallback to parent directory for strategies in subfolders
+
 ## Current Strategies
 
 ### SMA Crossover Strategy
@@ -11,7 +33,7 @@ A collection of algorithmic trading strategies implemented in Python for backtes
   - Golden Cross (50 SMA crosses above 200 SMA) - Buy signal
   - Death Cross (50 SMA crosses below 200 SMA) - Sell signal
   - Interactive candlestick charts with Plotly
-  - Portfolio backtesting with $10,000 initial capital
+  - Portfolio backtesting with configurable initial capital
   - Visual markers for entry/exit points
 
 ### MACD Strategy
@@ -66,9 +88,20 @@ A collection of algorithmic trading strategies implemented in Python for backtes
    ```bash
    pip install -r requirements.txt
    ```
+4. Configure your ticker symbol:
+   ```bash
+   python setup_ticker.py
+   ```
 
 ## Usage
 
+### Setting Up Ticker Symbol
+Before running strategies, set your desired ticker symbol:
+```bash
+python setup_ticker.py
+```
+
+### Running Strategies
 Run any strategy directly:
 ```bash
 python strategies/sma-crossover.py
@@ -79,10 +112,18 @@ python strategies/bollinger-bands.py
 ```
 
 The scripts will:
+- Read ticker symbol from configuration
 - Download historical data from Yahoo Finance
 - Calculate technical indicators
 - Generate interactive charts
 - Display backtest results
+
+### Configuration Options
+The `config.py` module provides these configurable parameters:
+- `TICKER` - Stock symbol (from config.txt)
+- `START_DATE` - Backtest start date (default: '2020-01-01')
+- `END_DATE` - Backtest end date (default: '2025-01-01')
+- `INITIAL_CAPITAL` - Starting capital (default: $10,000)
 
 ## Dependencies
 
@@ -103,8 +144,8 @@ Planned implementations:
 ## Data Sources
 
 - Yahoo Finance (via yfinance library)
-- Historical price data from 2020-present
-- Default ticker: JPM (configurable in each strategy)
+- Historical price data configurable via config.py
+- Configurable ticker symbol via config.txt
 
 ## Disclaimer
 

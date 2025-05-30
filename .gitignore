@@ -139,7 +139,7 @@ backtest_results/
 *.pkl
 
 # API keys and secrets
-.env
+*.env
 config.ini
 secrets.json
 api_keys.txt
