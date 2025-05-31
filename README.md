@@ -24,6 +24,39 @@ The configuration system includes:
 - `config.py` - Python module that reads the configuration
 - Automatic fallback to parent directory for strategies in subfolders
 
+### Data Source Configuration (Optional)
+For enhanced reliability, you can configure Alpha Vantage as a fallback data source:
+
+1. **Get a free API key** from [Alpha Vantage](https://www.alphavantage.co/support/#api-key)
+2. **Copy the environment template**:
+   ```bash
+   cp env.example .env
+   ```
+3. **Add your API key** to the `.env` file:
+   ```bash
+   ALPHA_VANTAGE_API_KEY=your_actual_api_key_here
+   ```
+
+## Data Fetching System
+
+The project uses a robust, multi-source data fetching system with automatic fallbacks:
+
+### Data Sources (in order of priority):
+1. **Yahoo Finance** (Primary) - Free, no API key required
+2. **Alpha Vantage** (Fallback) - Requires free API key
+3. **Sample Data** (Last Resort) - Generated realistic data for testing
+
+### Features:
+- **Automatic Fallback**: If Yahoo Finance is rate-limited, automatically tries Alpha Vantage
+- **Rate Limit Handling**: Intelligent retry logic with exponential backoff
+- **Consistent Format**: All data sources return the same format for seamless integration
+- **Error Recovery**: Graceful handling of API failures and network issues
+
+### Rate Limiting Protection:
+- Yahoo Finance: Automatic retry with increasing delays
+- Alpha Vantage: Respects API rate limits (5 calls/minute for free tier)
+- Sample Data: Always available as final fallback
+
 ## Current Strategies
 
 ### SMA Crossover Strategy
@@ -92,6 +125,11 @@ The configuration system includes:
    ```bash
    python setup_ticker.py
    ```
+5. (Optional) Set up Alpha Vantage API key for enhanced reliability:
+   ```bash
+   cp env.example .env
+   # Edit .env file with your API key
+   ```
 
 ## Usage
 
@@ -99,6 +137,12 @@ The configuration system includes:
 Before running strategies, set your desired ticker symbol:
 ```bash
 python setup_ticker.py
+```
+
+### Testing Data Sources
+Test all data sources to ensure they're working:
+```bash
+python data_fetcher.py
 ```
 
 ### Running Strategies
@@ -113,7 +157,9 @@ python strategies/bollinger-bands.py
 
 The scripts will:
 - Read ticker symbol from configuration
-- Download historical data from Yahoo Finance
+- Attempt to download data from Yahoo Finance
+- Automatically fallback to Alpha Vantage if needed
+- Use sample data as last resort
 - Calculate technical indicators
 - Generate interactive charts
 - Display backtest results
@@ -130,6 +176,8 @@ The `config.py` module provides these configurable parameters:
 - `pandas` - Data manipulation and analysis
 - `numpy` - Numerical computing
 - `yfinance` - Yahoo Finance data download
+- `alpha_vantage` - Alpha Vantage API client
+- `requests` - HTTP requests for API calls
 - `plotly` - Interactive charting
 
 ## Future Strategies
@@ -143,9 +191,34 @@ Planned implementations:
 
 ## Data Sources
 
-- Yahoo Finance (via yfinance library)
-- Historical price data configurable via config.py
-- Configurable ticker symbol via config.txt
+### Primary: Yahoo Finance
+- Free, no API key required
+- Real-time and historical data
+- Comprehensive coverage of global markets
+
+### Fallback: Alpha Vantage
+- Free tier: 5 API calls per minute, 500 calls per day
+- Premium tiers available for higher limits
+- Get your free API key: https://www.alphavantage.co/support/#api-key
+
+### Last Resort: Sample Data
+- Realistic generated data for testing
+- Always available when APIs fail
+- Consistent with actual market patterns
+
+## Troubleshooting
+
+### Rate Limiting Issues
+If you encounter "Too Many Requests" errors:
+1. Wait a few minutes for rate limits to reset
+2. Set up Alpha Vantage API key for fallback
+3. The system will automatically use sample data if all sources fail
+
+### API Key Setup
+If Alpha Vantage isn't working:
+1. Verify your API key is correct in the `.env` file
+2. Check you haven't exceeded daily limits (500 calls/day for free tier)
+3. Ensure the `.env` file is in the project root directory
 
 ## Disclaimer
 
