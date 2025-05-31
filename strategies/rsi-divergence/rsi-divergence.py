@@ -6,7 +6,7 @@ import sys
 import os
 
 # Add parent directory to path to import config and data fetcher
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 from config import TICKER, START_DATE, END_DATE, INITIAL_CAPITAL
 from data_fetcher import fetch_stock_data
 
@@ -38,29 +38,77 @@ def apply_trading_costs(price, is_buy=True):
     return adjusted_price
 
 
-def calculate_ema(prices, span):
+def calculate_rsi(prices, window=14):
     """
-    Calculate Exponential Moving Average
-    EMA = (Price * (2 / (span + 1))) + (Previous EMA * (1 - (2 / (span + 1))))
+    Calculate Relative Strength Index (RSI)
+    RSI = 100 - (100 / (1 + RS))
+    RS = Average Gain / Average Loss
     """
-    return prices.ewm(span=span).mean()
+    delta = prices.diff()
+    gain = (delta.where(delta > 0, 0)).rolling(window=window).mean()
+    loss = (-delta.where(delta < 0, 0)).rolling(window=window).mean()
+    rs = gain / loss
+    rsi = 100 - (100 / (1 + rs))
+    return rsi
 
 
-def calculate_macd(prices, fast_period=12, slow_period=26, signal_period=9):
+def find_peaks_and_troughs(data, window=5):
     """
-    Calculate MACD (Moving Average Convergence Divergence)
-    MACD Line = EMA(12) - EMA(26)
-    Signal Line = EMA(9) of MACD Line
-    Histogram = MACD Line - Signal Line
+    Find local peaks and troughs in a series
     """
-    ema_fast = calculate_ema(prices, fast_period)
-    ema_slow = calculate_ema(prices, slow_period)
+    peaks = []
+    troughs = []
     
-    macd_line = ema_fast - ema_slow
-    signal_line = calculate_ema(macd_line, signal_period)
-    histogram = macd_line - signal_line
+    for i in range(window, len(data) - window):
+        # Check if current point is a peak
+        if all(data.iloc[i] >= data.iloc[i-j] for j in range(1, window+1)) and \
+           all(data.iloc[i] >= data.iloc[i+j] for j in range(1, window+1)):
+            peaks.append(i)
+        
+        # Check if current point is a trough
+        if all(data.iloc[i] <= data.iloc[i-j] for j in range(1, window+1)) and \
+           all(data.iloc[i] <= data.iloc[i+j] for j in range(1, window+1)):
+            troughs.append(i)
     
-    return macd_line, signal_line, histogram
+    return peaks, troughs
+
+
+def detect_divergence(price_peaks, price_troughs, rsi_peaks, rsi_troughs, price_data, rsi_data):
+    """
+    Detect bullish and bearish divergences
+    """
+    bullish_divergence = []
+    bearish_divergence = []
+    
+    # Bullish divergence: Price makes lower lows, RSI makes higher lows
+    for i in range(1, len(price_troughs)):
+        if i < len(rsi_troughs):
+            curr_price_trough = price_troughs[i]
+            prev_price_trough = price_troughs[i-1]
+            curr_rsi_trough = rsi_troughs[i] if i < len(rsi_troughs) else None
+            prev_rsi_trough = rsi_troughs[i-1] if i-1 < len(rsi_troughs) else None
+            
+            if curr_rsi_trough and prev_rsi_trough:
+                # Price lower low, RSI higher low
+                if (price_data.iloc[curr_price_trough] < price_data.iloc[prev_price_trough] and
+                    rsi_data.iloc[curr_rsi_trough] > rsi_data.iloc[prev_rsi_trough]):
+                    bullish_divergence.append(curr_price_trough)
+    
+    # Bearish divergence: Price makes higher highs, RSI makes lower highs
+    for i in range(1, len(price_peaks)):
+        if i < len(rsi_peaks):
+            curr_price_peak = price_peaks[i]
+            prev_price_peak = price_peaks[i-1]
+            curr_rsi_peak = rsi_peaks[i] if i < len(rsi_peaks) else None
+            prev_rsi_peak = rsi_peaks[i-1] if i-1 < len(rsi_peaks) else None
+            
+            if curr_rsi_peak and prev_rsi_peak:
+                # Price higher high, RSI lower high
+                if (price_data.iloc[curr_price_peak] > price_data.iloc[prev_price_peak] and
+                    rsi_data.iloc[curr_rsi_peak] < rsi_data.iloc[prev_rsi_peak]):
+                    bearish_divergence.append(curr_price_peak)
+    
+    return bullish_divergence, bearish_divergence
 
 
 # Load data using centralized fetcher with fallback options
@@ -74,39 +122,44 @@ if df is None or df.empty:
 # Data is already in the correct format from our fetcher
 # No need to flatten MultiIndex columns or reset index
 
-# Calculate MACD
-df['MACD'], df['Signal'], df['Histogram'] = calculate_macd(df['Close'])
+# Calculate RSI
+df['RSI'] = calculate_rsi(df['Close'])
 
-# Calculate additional EMAs for trend confirmation
-df['EMA_12'] = calculate_ema(df['Close'], 12)
-df['EMA_26'] = calculate_ema(df['Close'], 26)
+# Find peaks and troughs
+price_peaks, price_troughs = find_peaks_and_troughs(df['Close'])
+rsi_peaks, rsi_troughs = find_peaks_and_troughs(df['RSI'])
 
-# Generate trading signals
-# Buy when MACD crosses above Signal line (bullish crossover)
-df['MACD_Cross_Up'] = (df['MACD'] > df['Signal']) & (df['MACD'].shift(1) <= df['Signal'].shift(1))
+# Detect divergences
+bullish_div, bearish_div = detect_divergence(
+    price_peaks, price_troughs, rsi_peaks, rsi_troughs, df['Close'], df['RSI']
+)
 
-# Sell when MACD crosses below Signal line (bearish crossover)
-df['MACD_Cross_Down'] = (df['MACD'] < df['Signal']) & (df['MACD'].shift(1) >= df['Signal'].shift(1))
+# Create trading signals
+df['Buy_Signal'] = False
+df['Sell_Signal'] = False
 
-# Additional confirmation: MACD above/below zero line
-df['MACD_Above_Zero'] = df['MACD'] > 0
-df['MACD_Below_Zero'] = df['MACD'] < 0
+# Mark divergence points
+for idx in bullish_div:
+    df.loc[idx, 'Buy_Signal'] = True
 
-# Strong signals: MACD crossover + zero line confirmation
-df['Strong_Buy'] = df['MACD_Cross_Up'] & df['MACD_Above_Zero']
-df['Strong_Sell'] = df['MACD_Cross_Down'] & df['MACD_Below_Zero']
+for idx in bearish_div:
+    df.loc[idx, 'Sell_Signal'] = True
 
-# Alternative: Use any crossover (more signals, potentially more noise)
-df['Buy_Signal'] = df['MACD_Cross_Up']
-df['Sell_Signal'] = df['MACD_Cross_Down']
+# Add RSI overbought/oversold levels as additional signals
+df['RSI_Oversold'] = df['RSI'] < 30
+df['RSI_Overbought'] = df['RSI'] > 70
+
+# Combine divergence with RSI levels for stronger signals
+df['Strong_Buy'] = df['Buy_Signal'] & df['RSI_Oversold']
+df['Strong_Sell'] = df['Sell_Signal'] & df['RSI_Overbought']
 
 # Create subplot figure
 fig = make_subplots(
-    rows=3, cols=1,
+    rows=2, cols=1,
     shared_xaxes=True,
-    vertical_spacing=0.08,
-    subplot_titles=(f'{TICKER} Price with MACD Strategy', 'MACD', 'MACD Histogram'),
-    row_heights=[0.5, 0.25, 0.25]
+    vertical_spacing=0.1,
+    subplot_titles=(f'{TICKER} Price with RSI Divergence', 'RSI'),
+    row_heights=[0.7, 0.3]
 )
 
 # Add candlestick chart
@@ -122,104 +175,74 @@ fig.add_trace(
     row=1, col=1
 )
 
-# Add EMAs to price chart
-fig.add_trace(
-    go.Scatter(
-        x=df['Date'],
-        y=df['EMA_12'],
-        name='EMA 12',
-        line=dict(color='blue', width=1)
-    ),
-    row=1, col=1
-)
-
-fig.add_trace(
-    go.Scatter(
-        x=df['Date'],
-        y=df['EMA_26'],
-        name='EMA 26',
-        line=dict(color='red', width=1)
-    ),
-    row=1, col=1
-)
-
 # Add buy signals
-buy_signals = df[df['Buy_Signal']]
+buy_signals = df[df['Strong_Buy']]
 fig.add_trace(
     go.Scatter(
         x=buy_signals['Date'],
         y=buy_signals['Close'],
         mode='markers+text',
-        marker=dict(symbol='triangle-up', size=12, color='green'),
+        marker=dict(symbol='triangle-up', size=15, color='green'),
         text='BUY',
         textposition='bottom center',
-        name='MACD Buy Signal'
+        name='Bullish Divergence'
     ),
     row=1, col=1
 )
 
 # Add sell signals
-sell_signals = df[df['Sell_Signal']]
+sell_signals = df[df['Strong_Sell']]
 fig.add_trace(
     go.Scatter(
         x=sell_signals['Date'],
         y=sell_signals['Close'],
         mode='markers+text',
-        marker=dict(symbol='triangle-down', size=12, color='red'),
+        marker=dict(symbol='triangle-down', size=15, color='red'),
         text='SELL',
         textposition='top center',
-        name='MACD Sell Signal'
+        name='Bearish Divergence'
     ),
     row=1, col=1
 )
 
-# Add MACD and Signal lines
+# Add RSI
 fig.add_trace(
     go.Scatter(
         x=df['Date'],
-        y=df['MACD'],
-        name='MACD Line',
-        line=dict(color='blue')
+        y=df['RSI'],
+        name='RSI',
+        line=dict(color='purple')
     ),
     row=2, col=1
 )
 
-fig.add_trace(
-    go.Scatter(
-        x=df['Date'],
-        y=df['Signal'],
-        name='Signal Line',
-        line=dict(color='red')
-    ),
-    row=2, col=1
-)
-
-# Add zero line to MACD
+# Add RSI levels
 fig.add_shape(
     type="line",
     x0=df['Date'].iloc[0], x1=df['Date'].iloc[-1],
-    y0=0, y1=0,
-    line=dict(dash="dash", color="gray"),
+    y0=70, y1=70,
+    line=dict(dash="dash", color="red"),
+    row=2, col=1
+)
+fig.add_shape(
+    type="line", 
+    x0=df['Date'].iloc[0], x1=df['Date'].iloc[-1],
+    y0=30, y1=30,
+    line=dict(dash="dash", color="green"),
+    row=2, col=1
+)
+fig.add_shape(
+    type="line",
+    x0=df['Date'].iloc[0], x1=df['Date'].iloc[-1], 
+    y0=50, y1=50,
+    line=dict(dash="dot", color="gray"),
     row=2, col=1
 )
 
-# Add MACD Histogram
-colors = ['green' if x >= 0 else 'red' for x in df['Histogram']]
-fig.add_trace(
-    go.Bar(
-        x=df['Date'],
-        y=df['Histogram'],
-        name='MACD Histogram',
-        marker_color=colors,
-        opacity=0.7
-    ),
-    row=3, col=1
-)
-
 fig.update_layout(
-    title=f'{TICKER} - MACD Strategy',
+    title=f'{TICKER} - RSI Divergence Strategy',
     xaxis_rangeslider_visible=False,
-    height=900
+    height=800
 )
 
 fig.show()
@@ -229,11 +252,11 @@ initial_capital = INITIAL_CAPITAL
 df['Position'] = 0
 current_position = 0
 
-# Generate position signals
+# Generate position signals based on strong signals
 for i in range(len(df)):
-    if df['Buy_Signal'].iloc[i] and current_position == 0:
+    if df['Strong_Buy'].iloc[i] and current_position == 0:
         current_position = 1  # Enter long position
-    elif df['Sell_Signal'].iloc[i] and current_position == 1:
+    elif df['Strong_Sell'].iloc[i] and current_position == 1:
         current_position = 0  # Exit long position
     
     df.loc[df.index[i], 'Position'] = current_position
@@ -281,25 +304,16 @@ df['Portfolio_Value'] = df['Holdings'] + df['Cash']
 # Performance metrics
 total_return = (df['Portfolio_Value'].iloc[-1] / initial_capital - 1) * 100
 buy_hold_return = (df['Close'].iloc[-1] / df['Close'].iloc[0] - 1) * 100
-num_trades = df['Position'].diff().abs().sum()
 
-print(f"\n=== MACD Strategy Performance (with Trading Costs) ===")
+print(f"\n=== RSI Divergence Strategy Performance (with Trading Costs) ===")
 print(f"Initial Capital: ${initial_capital:,.2f}")
 print(f"Final Portfolio Value: ${df['Portfolio_Value'].iloc[-1]:,.2f}")
 print(f"Total Return: {total_return:.2f}%")
 print(f"Buy & Hold Return: {buy_hold_return:.2f}%")
 print(f"Strategy vs Buy & Hold: {total_return - buy_hold_return:.2f}%")
-print(f"Number of trades: {num_trades}")
+print(f"Number of trades: {df['Position'].diff().abs().sum()}")
 print(f"Total Transaction Costs: ${total_transaction_costs:,.2f}")
 print(f"Transaction Costs as % of Initial Capital: {(total_transaction_costs/initial_capital)*100:.2f}%")
-
-# Calculate additional metrics
-df['Strategy_Returns'] = df['Portfolio_Value'].pct_change()
-strategy_volatility = df['Strategy_Returns'].std() * np.sqrt(252) * 100  # Annualized
-sharpe_ratio = (total_return / 100) / (strategy_volatility / 100) if strategy_volatility > 0 else 0
-
-print(f"Strategy Volatility (annualized): {strategy_volatility:.2f}%")
-print(f"Sharpe Ratio: {sharpe_ratio:.2f}")
 
 # Create portfolio performance chart
 fig2 = go.Figure()
@@ -307,7 +321,7 @@ fig2 = go.Figure()
 fig2.add_trace(go.Scatter(
     x=df['Date'], 
     y=df['Portfolio_Value'], 
-    name='MACD Strategy',
+    name='RSI Divergence Strategy',
     line=dict(color='blue')
 ))
 
@@ -323,7 +337,7 @@ fig2.add_trace(go.Scatter(
 ))
 
 fig2.update_layout(
-    title=f'{TICKER} - MACD Strategy vs Buy & Hold',
+    title=f'{TICKER} - RSI Divergence Strategy vs Buy & Hold',
     xaxis_title='Date',
     yaxis_title='Portfolio Value ($)',
     xaxis_rangeslider_visible=False

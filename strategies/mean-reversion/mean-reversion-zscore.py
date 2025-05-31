@@ -6,7 +6,7 @@ import sys
 import os
 
 # Add parent directory to path to import config and data fetcher
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 from config import TICKER, START_DATE, END_DATE, INITIAL_CAPITAL
 from data_fetcher import fetch_stock_data
 
