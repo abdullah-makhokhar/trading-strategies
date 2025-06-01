@@ -315,6 +315,20 @@ print(f"Number of trades: {df['Position'].diff().abs().sum()}")
 print(f"Total Transaction Costs: ${total_transaction_costs:,.2f}")
 print(f"Transaction Costs as % of Initial Capital: {(total_transaction_costs/initial_capital)*100:.2f}%")
 
+# Calculate additional metrics
+df['Strategy_Returns'] = df['Portfolio_Value'].pct_change()
+strategy_volatility = df['Strategy_Returns'].std() * np.sqrt(252) * 100  # Annualized
+sharpe_ratio = (total_return / 100) / (strategy_volatility / 100) if strategy_volatility > 0 else 0
+
+# Calculate maximum drawdown
+rolling_max = df['Portfolio_Value'].expanding().max()
+drawdown = (df['Portfolio_Value'] - rolling_max) / rolling_max
+max_drawdown = drawdown.min() * 100
+
+print(f"Strategy Volatility (annualized): {strategy_volatility:.2f}%")
+print(f"Sharpe Ratio: {sharpe_ratio:.2f}")
+print(f"Maximum Drawdown: {max_drawdown:.2f}%")
+
 # Create portfolio performance chart
 fig2 = go.Figure()
 
